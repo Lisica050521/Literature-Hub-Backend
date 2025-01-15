@@ -1,0 +1,42 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.pyd
+*.db
+*.sqlite3
+
+# virtualenv
+venv/
+env/
+.env/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Unit test / coverage reports
+.coverage
+.tox/
+.nox/
+*.coverage
+*.hypothesis/
+nosetests.xml
+coverage.xml
+*.cover
+
+# mypy
+.mypy_cache/
+
+# pytest
+.cache/
+
+# FastAPI
+*.sqlite3
+*.db
