@@ -4,9 +4,12 @@ from fastapi.security import OAuth2PasswordBearer
 from app.db.session import get_db
 from app.models import User
 from app.schemas import UserCreate
+from app.schemas.user import UserUpdate
 from app.utils import hash_password
 from app.core.config import settings
 from jose import jwt, JWTError
+
+
 
 # Создаем роутер для обработки запросов, связанных с пользователями
 router = APIRouter()
@@ -75,3 +78,26 @@ async def get_users(
 ):
     users = db.query(User).all()
     return {"users": [{"username": user.username, "role": user.role} for user in users]}
+
+# Обновление информации текущего пользователя
+@router.put("/me")
+async def update_user_info(
+    user_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Получаем текущего пользователя из базы
+    db_user = db.query(User).filter(User.id == current_user.id).first()
+    
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+    
+    # Обновляем разрешенные поля
+    if user_update.username:
+        db_user.username = user_update.username
+    if user_update.password:
+        db_user.hashed_password = hash_password(user_update.password)
+    
+    db.commit()
+    db.refresh(db_user)
+    return {"message": "Информация обновлена", "user": {"username": db_user.username}}
