@@ -20,6 +20,6 @@ def authenticate_user(login_data: LoginRequest, db: Session = Depends(get_db)):
         )
     token_lifespan = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = generate_auth_token(
-        data={"sub": user.username}, expires_delta=token_lifespan
+        data={"sub": str(user.id)}, expires_delta=token_lifespan
     )
     return {"access_token": access_token, "token_type": "bearer"}
