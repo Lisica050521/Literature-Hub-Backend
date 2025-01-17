@@ -9,7 +9,7 @@ from datetime import datetime
 
 router = APIRouter()
 
-# Новая функция: проверка, является ли пользователь администратором по роли
+# Функция для проверки, является ли пользователь администратором
 def get_current_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":  # Проверяем роль пользователя
         raise HTTPException(
@@ -18,12 +18,12 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
         )
     return current_user
 
-# Эндпоинт для выдачи книги пользователю
+# Эндпоинт для выдачи книги пользователю (только для администраторов)
 @router.post("/issue/{book_id}")
 async def issue_book(
     book_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin)  # Проверка на роль администратора
 ):
     # Проверка, не превышен ли лимит на количество книг
     active_loans = db.query(Transaction).filter(Transaction.user_id == current_user.id, Transaction.return_date == None).count()
@@ -92,7 +92,7 @@ async def return_book(
 @router.get("/transactions")
 async def get_user_transactions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)  # Здесь доступ только для текущего пользователя
 ):
     transactions = db.query(Transaction).filter(Transaction.user_id == current_user.id).all()
     return {
