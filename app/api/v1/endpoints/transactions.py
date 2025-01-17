@@ -9,6 +9,16 @@ from datetime import datetime
 
 router = APIRouter()
 
+# Новая функция: проверка, является ли пользователь администратором по роли
+def get_current_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":  # Проверяем роль пользователя
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Требуется роль администратора для выполнения этого действия."
+        )
+    return current_user
+
+# Эндпоинт для выдачи книги пользователю
 @router.post("/issue/{book_id}")
 async def issue_book(
     book_id: int,
@@ -43,14 +53,15 @@ async def issue_book(
 
     return {"message": "Книга выдана", "transaction_id": transaction.id, "due_date": transaction.due_date}
 
+# Эндпоинт для возврата книги, доступен только администратору
 @router.post("/return/{transaction_id}")
 async def return_book(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_admin)  # Используем проверку на администратора
 ):
     # Найти транзакцию по id
-    transaction = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.user_id == current_user.id).first()
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -77,12 +88,12 @@ async def return_book(
 
     return {"message": "Книга возвращена", "transaction_id": transaction.id}
 
+# Эндпоинт для получения транзакций пользователя
 @router.get("/transactions")
 async def get_user_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    print(f"Current user ID: {current_user.id}")  # Выводим ID текущего пользователя
     transactions = db.query(Transaction).filter(Transaction.user_id == current_user.id).all()
     return {
         "transactions": [
