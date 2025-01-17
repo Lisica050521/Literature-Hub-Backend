@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import Body
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.transaction import Transaction
@@ -21,19 +22,21 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
 # Эндпоинт для выдачи книги пользователю (только для администраторов)
 @router.post("/issue/{book_id}")
 async def issue_book(
-    book_id: int,
+    book_id: int,  # только book_id в URL
+    user: dict = Body(...),  # теперь user_id приходит как часть тела запроса
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)  # Проверка на роль администратора
+    current_user: User = Depends(get_current_admin)  # Только администратор может выдавать
 ):
-    # Проверка, не превышен ли лимит на количество книг
-    active_loans = db.query(Transaction).filter(Transaction.user_id == current_user.id, Transaction.return_date == None).count()
-    if active_loans >= 5:
+    user_id = user["user_id"]  # Извлекаем user_id из тела запроса
+
+    # Проверка, что администратор не выдает книгу себе
+    if current_user.id == user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Нельзя брать больше 5 книг одновременно."
+            detail="Администратор может выдать книгу только читателю."
         )
 
-    # Проверка наличия книги
+    # Проверка, что книга доступна для выдачи
     book = db.query(LiteratureItem).filter(LiteratureItem.id == book_id, LiteratureItem.available_copies > 0).first()
     if not book:
         raise HTTPException(
@@ -41,8 +44,16 @@ async def issue_book(
             detail="Книга не найдена или отсутствуют доступные экземпляры."
         )
 
-    # Создаем запись о транзакции
-    transaction = Transaction(user_id=current_user.id, literature_item_id=book.id)
+    # Проверка, что пользователь не превысил лимит в 5 книг
+    user_transactions = db.query(Transaction).filter(Transaction.user_id == user_id, Transaction.return_date == None).all()
+    if len(user_transactions) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пользователь уже имеет 5 не возвращенных книг."
+        )
+
+    # Создание транзакции
+    transaction = Transaction(user_id=user_id, literature_item_id=book.id)
     db.add(transaction)
     db.commit()
     db.refresh(transaction)
@@ -58,7 +69,7 @@ async def issue_book(
 async def return_book(
     transaction_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)  # Используем проверку на администратора
+    current_user: User = Depends(get_current_admin)  # Админ проверяет роль
 ):
     # Найти транзакцию по id
     transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
