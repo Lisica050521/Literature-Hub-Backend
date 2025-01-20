@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # Создаем обработчик для записи логов в файл
-file_handler = logging.FileHandler("app.log")
+file_handler = logging.FileHandler("app.log", encoding="utf-8")
 file_handler.setLevel(logging.INFO)
 
 # Создаем формат для вывода логов

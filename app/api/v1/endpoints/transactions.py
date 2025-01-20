@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi import Body
 from sqlalchemy.orm import Session
@@ -12,6 +13,14 @@ from app.schemas.transactions import ReturnBookResponse
 from datetime import datetime
 from typing import List
 from app.core.logging import logger
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler("app.log")
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 router = APIRouter()
 
@@ -34,14 +43,18 @@ async def issue_book(
 ):
     user_id = user["user_id"]
 
-    # Администратор не может выдать книгу себе или другому администратору
+    logger.info(f"Attempting to issue book ID {book_id} to user ID {user_id} by admin ID {current_user.id}")
+
+    # Администратор выдает книгу только читателю.
     user_obj = db.query(User).filter(User.id == user_id).first()
     if not user_obj:
+        logger.error(f"User ID {user_id} not found for book issue.")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Пользователь не найден."
         )
     if current_user.id == user_id or user_obj.role == "admin":
+        logger.error(f"Admin cannot issue book to themselves or another admin: Admin ID {current_user.id}, User ID {user_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Администратор может выдать книгу только читателю."
@@ -50,6 +63,7 @@ async def issue_book(
     # Проверка наличия доступных экземпляров книги
     book = db.query(LiteratureItem).filter(LiteratureItem.id == book_id, LiteratureItem.available_copies > 0).first()
     if not book:
+        logger.error(f"Book ID {book_id} not available for issue.")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Книга не найдена или отсутствуют доступные экземпляры."
@@ -58,6 +72,7 @@ async def issue_book(
     # Проверка, что пользователь имеет менее 5 невозвращенных книг
     user_transactions = db.query(Transaction).filter(Transaction.user_id == user_id, Transaction.return_date == None).all()
     if len(user_transactions) >= 5:
+        logger.error(f"User ID {user_id} already has 5 unreturned books.")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Пользователь уже имеет 5 не возвращенных книг."
@@ -85,11 +100,15 @@ async def return_book(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin)
 ):
+    # Логируем начало обработки запроса возврата
+    logger.info(f"Attempting to return book with Transaction ID {transaction_id} by Admin ID {current_user.id}")
+
     # Получаем транзакцию по ID
     transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
 
     # Если транзакция не найдена
     if not transaction:
+        logger.error(f"Transaction ID {transaction_id} not found for book return.")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Транзакция для этой книги и пользователя не найдена."
@@ -97,6 +116,7 @@ async def return_book(
 
     # Проверка, что книга уже была возвращена
     if transaction.return_date is not None:
+        logger.error(f"Book already returned: Transaction ID {transaction_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Книга уже была возвращена."
@@ -125,12 +145,17 @@ async def get_user_transactions(
     current_user: User = Depends(get_current_user),  # Здесь доступ только для текущего пользователя
     user_id: int = None  # Параметр для администратора, который может указать другого пользователя
 ):
+    logger.info(f"Admin ID {current_user.id} is fetching transactions for User ID {user_id if user_id else current_user.id}")
+
     # Если это администратор и передан user_id, ищем транзакции для другого пользователя
     if current_user.role == "admin" and user_id:
         transactions = db.query(Transaction).filter(Transaction.user_id == user_id).all()
     else:
         # Если это читатель, то показываем только его транзакции
         transactions = db.query(Transaction).filter(Transaction.user_id == current_user.id).all()
+
+    # Логируем количество транзакций найденных
+    logger.info(f"Found {len(transactions)} transactions for User ID {current_user.id if not user_id else user_id}")
 
     return [
         TransactionResponse.from_orm(transaction)

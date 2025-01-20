@@ -3,7 +3,6 @@
 *.pyo
 *.pyd
 __pycache__/
-*.pyd
 *.db
 *.sqlite3
 
@@ -20,6 +19,7 @@ env/
 
 # Logs
 *.log
+app.log
 
 # Unit test / coverage reports
 .coverage
@@ -40,3 +40,6 @@ coverage.xml
 # FastAPI
 *.sqlite3
 *.db
+
+# Alembic migration files (если не нужно версионировать миграции)
+# alembic/
