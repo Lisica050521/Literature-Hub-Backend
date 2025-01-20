@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from typing import List
+from typing import Optional
 
 class UserBase(BaseModel):
     username: str
@@ -14,6 +16,9 @@ class UserResponse(UserBase):
     class Config:
         from_attributes = True
 
+class UserListResponse(BaseModel):
+    users: List[UserResponse]        
+
 class UserUpdate(BaseModel):
-    username: str | None = None
-    password: str | None = None 
+    uusername: Optional[str] = None
+    password: Optional[str] = None

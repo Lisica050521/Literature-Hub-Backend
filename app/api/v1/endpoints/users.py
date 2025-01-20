@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models import User
 from app.schemas import UserCreate
 from app.schemas.user import UserUpdate
+from app.schemas.user import UserListResponse, UserResponse
 from app.utils import hash_password
 from app.core.config import settings
 from jose import jwt, JWTError
-
-
 
 # Создаем роутер для обработки запросов, связанных с пользователями
 router = APIRouter()
@@ -71,13 +70,13 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return {"message": "User created", "user": db_user}
 
-@router.get("/")
+@router.get("/", response_model=UserListResponse)
 async def get_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(admin_required)
 ):
     users = db.query(User).all()
-    return {"users": [{"username": user.username, "role": user.role} for user in users]}
+    return UserListResponse(users=[UserResponse.from_orm(user) for user in users])
 
 # Обновление информации текущего пользователя
 @router.put("/me")

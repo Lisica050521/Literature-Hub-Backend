@@ -1,8 +1,9 @@
 from pydantic import BaseModel
+from typing import Optional, List
 
 class LiteratureItemBase(BaseModel):
     title: str
-    description: str | None = None
+    description: Optional[str] = None
 
 class LiteratureItemCreate(LiteratureItemBase):
     author_id: int
@@ -12,4 +13,4 @@ class LiteratureItemResponse(LiteratureItemBase):
     author_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True

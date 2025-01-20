@@ -1,9 +1,9 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class AuthorBase(BaseModel):
     name: str
-    bio: str | None = None
+    bio: Optional[str] = None
 
 class AuthorCreate(AuthorBase):
     pass
@@ -13,4 +13,4 @@ class AuthorResponse(AuthorBase):
     literature_items: List[str] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True

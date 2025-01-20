@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.transaction import Transaction
 from app.models.literature_item import LiteratureItem
-from app.dependencies import get_current_user
 from app.models.user import User
+from app.dependencies import get_current_user
+from app.schemas.transactions import TransactionResponse
 from datetime import datetime
+from typing import List
 
 router = APIRouter()
 
@@ -100,19 +102,13 @@ async def return_book(
     return {"message": "Книга возвращена", "transaction_id": transaction.id}
 
 # Эндпоинт для получения транзакций пользователя
-@router.get("/transactions")
+@router.get("/transactions", response_model=List[TransactionResponse])
 async def get_user_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)  # Здесь доступ только для текущего пользователя
 ):
     transactions = db.query(Transaction).filter(Transaction.user_id == current_user.id).all()
-    return {
-        "transactions": [
-            {
-                "book_id": transaction.literature_item_id,
-                "loan_date": transaction.loan_date,
-                "return_date": transaction.return_date
-            }
-            for transaction in transactions
-        ]
-    }
+    return [
+    TransactionResponse.from_orm(transaction)
+    for transaction in transactions
+    ]
