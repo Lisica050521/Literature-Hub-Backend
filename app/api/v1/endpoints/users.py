@@ -76,7 +76,7 @@ async def get_users(
     current_user: User = Depends(admin_required)
 ):
     users = db.query(User).all()
-    return UserListResponse(users=[UserResponse.from_orm(user) for user in users])
+    return UserListResponse(users=[UserResponse(**user.__dict__) for user in users])
 
 # Обновление информации текущего пользователя
 @router.put("/me")

@@ -10,6 +10,11 @@ class LiteratureItemCreate(LiteratureItemBase):
 
 class LiteratureItemResponse(LiteratureItemBase):
     id: int
+    title: str
+    description: Optional[str] = None
+    publication_date: Optional[str] = None
+    genre: Optional[str] = None
+    available_copies: int
     author_id: int
 
     class Config:

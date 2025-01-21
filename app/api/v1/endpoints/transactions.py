@@ -158,6 +158,6 @@ async def get_user_transactions(
     logger.info(f"Found {len(transactions)} transactions for User ID {current_user.id if not user_id else user_id}")
 
     return [
-        TransactionResponse.from_orm(transaction)
+        TransactionResponse(**transaction.__dict__)
         for transaction in transactions
     ]
