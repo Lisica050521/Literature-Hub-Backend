@@ -34,8 +34,6 @@ def client():
     with TestClient(app) as client:
         yield client
 
-# tests/test_auth_portal.py
-
 def test_authenticate_user_success(client, test_user):
     login_data = {
         "username": "testuser",

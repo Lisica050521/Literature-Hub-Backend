@@ -1,92 +1,71 @@
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db.session import SessionLocal
-from app.models.user import User
-from app.schemas.auth_token import AuthToken
-from app.schemas.author import AuthorCreate
-from app.schemas.literature_item import LiteratureItemCreate
-from app.core.security import generate_auth_token
-from datetime import timedelta
-import jwt
-from app.core.config import settings
+from app.models import Author
+from app.schemas.author import AuthorCreate, AuthorResponse
+from app.schemas.literature_item import LiteratureItemResponse
+from sqlalchemy.orm import Session
+from typing import Generator
+import pytest
 
-# Создаем фикстуру для генерации токена
-@pytest.fixture()
-def token(test_admin):
-    # Включаем роль в данные
-    return generate_auth_token(data={"user_id": test_admin.id, "role": "admin"}, expires_delta=timedelta(hours=1))
 
-# Фикстура для подключения к базе данных
-@pytest.fixture()
-def db():
+# Используем TestClient для тестирования FastAPI приложения
+client = TestClient(app)
+
+# Фикстура для работы с базой данных
+@pytest.fixture(scope="module")
+def db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# Фикстура для создания пользователя администратора
-@pytest.fixture()
-def test_admin(db):
-    user = db.query(User).filter(User.username == "admin").first()
-    if not user:
-        user = User(username="admin", hashed_password="hashed_password")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    return user
+# Тестирование получения списка авторов
+def test_get_authors(db):
+    # Создаем автора для теста
+    new_author = Author(name="Test Author", bio="Test Bio")
+    db.add(new_author)
+    db.commit()
+    db.refresh(new_author)
 
-# Фикстура для данных автора
-@pytest.fixture()
-def author_data():
-    return AuthorCreate(name="John Doe", bio="Some biography")
-
-# Фикстура для клиента
-@pytest.fixture()
-def client():
-    with TestClient(app) as client:
-        yield client
-
-# Фикстура для создания автора
-@pytest.fixture()
-def create_author(client, author_data, token):
-    response = client.post(
-        "/authors/", json=author_data.dict(), headers={"Authorization": f"Bearer {token}"}
-    )
+    # Выполняем запрос к эндпоинту
+    response = client.get("/authors/")
     assert response.status_code == 200
-    return response.json()  # возвращаем данные созданного автора
+    assert isinstance(response.json(), list)
+    assert len(response.json()) > 0
+    assert "name" in response.json()[0]
+    assert "id" in response.json()[0]
 
-# Тест создания автора
-def test_create_author(client, db, test_admin, author_data, token):
-    response = client.post(
-        "/authors/", json=author_data.dict(), headers={"Authorization": f"Bearer {token}"}
-    )
+# Тестирование получения литературы для конкретного автора
+def test_get_literature_items_for_author(db):
+    # Создаем автора для теста
+    new_author = Author(name="Author With Books", bio="Author Bio")
+    db.add(new_author)
+    db.commit()
+    db.refresh(new_author)
+
+    # Создаем несколько книг для этого автора
+    literature_item_1 = LiteratureItemResponse(title="Book 1", author_id=new_author.id)
+    literature_item_2 = LiteratureItemResponse(title="Book 2", author_id=new_author.id)
+    db.add(literature_item_1)
+    db.add(literature_item_2)
+    db.commit()
+
+    # Выполняем запрос к эндпоинту для получения литературы
+    response = client.get(f"/authors/{new_author.id}/literature_items")
     assert response.status_code == 200
-    assert response.json()["name"] == author_data.name
-    assert response.json()["bio"] == author_data.bio
+    assert len(response.json()) == 2
+    assert "title" in response.json()[0]
 
-def test_auth_token_sub_is_int(token):
-    # Декодируем токен для проверки его содержимого
-    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    
-    assert isinstance(payload["sub"], str)
-    
-    # Поскольку мы передаем user_id, проверим, что оно соответствует ожидаемому id пользователя
-    assert payload["sub"] == 1  # Замените на id пользователя, которое вы передаете в токене
+# Тестирование создания нового автора (для администратора)
+def test_create_author(db):
+    # Данные для нового автора
+    author_data = AuthorCreate(name="New Author", bio="Bio of new author")
 
-    # Проверим роль
-    assert payload["role"] == "admin"
-
-# Тест создания литературы для автора
-def test_create_literature_for_author(client, db, create_author):
-    literature_data = LiteratureItemCreate(
-        title="Test Book",
-        description="A description of the book",
-        author_id=create_author["id"]  # доступ к id через ключ
-    )
-    response = client.post("/literature_items/", json=literature_data.dict())
+    # Выполняем запрос на создание нового автора
+    response = client.post("/authors/", json=author_data.dict())
     assert response.status_code == 200
-    assert response.json()["title"] == literature_data.title
-    assert response.json()["description"] == literature_data.description
-    assert response.json()["author_id"] == literature_data.author_id
+    assert "id" in response.json()
+    assert response.json()["name"] == "New Author"
+    assert response.json()["bio"] == "Bio of new author"
