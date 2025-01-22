@@ -9,7 +9,7 @@ class LiteratureItemCreate(LiteratureItemBase):
     author_id: int
 
 class LiteratureItemResponse(LiteratureItemBase):
-    id: int
+    id: str
     title: str
     description: Optional[str] = None
     publication_date: Optional[str] = None

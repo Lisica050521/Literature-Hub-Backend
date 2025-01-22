@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from pydantic import Field
 
@@ -13,7 +13,7 @@ class TransactionResponse(BaseModel):
 
 class IssueBookResponse(BaseModel):
     message: str
-    transaction_id: int
+    transaction_id: str  # Изменено с int на str
     due_date: datetime
 
     class Config:
@@ -21,7 +21,7 @@ class IssueBookResponse(BaseModel):
 
 class ReturnBookResponse(BaseModel):
     message: str
-    transaction_id: int
+    transaction_id: str
 
     class Config:
         from_attributes = True

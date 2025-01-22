@@ -4,16 +4,15 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models import User
 from app.schemas import UserCreate
-from app.schemas.user import UserUpdate
-from app.schemas.user import UserListResponse, UserResponse
+from app.schemas.user import UserListResponse, UserResponse, UserUpdate
 from app.utils import hash_password
 from app.core.config import settings
-from jose import jwt, JWTError
+import jwt
 
-# Создаем роутер для обработки запросов, связанных с пользователями
+# Создаем роутер для обработки запросов, связанных с пользователями.
 router = APIRouter()
 
-# Для получения токена из заголовков запроса
+# Для получения токена из заголовков запроса.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def hash_password(password: str):
@@ -21,21 +20,21 @@ def hash_password(password: str):
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     return pwd_context.hash(password)
 
-# Функция для извлечения текущего пользователя из токена
+# Функция для извлечения текущего пользователя из токена.
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        user_id: str = payload.get("sub")
+        user_id = payload.get("sub")
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Неверный токен",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    except JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Не удалось проверить токен",
@@ -52,7 +51,7 @@ def get_current_user(
     
     return user
 
-# Функция для проверки роли администратора
+# Функция для проверки роли администратора.
 def admin_required(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(
@@ -61,6 +60,7 @@ def admin_required(db: Session = Depends(get_db), current_user: User = Depends(g
         )
     return current_user
 
+# Создания пользователя.
 @router.post("/")
 async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     hashed_password = hash_password(user.password)
@@ -70,6 +70,7 @@ async def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return {"message": "User created", "user": db_user}
 
+# Получения списка пользователей (только для администратора).
 @router.get("/", response_model=UserListResponse)
 async def get_users(
     db: Session = Depends(get_db),
@@ -78,7 +79,7 @@ async def get_users(
     users = db.query(User).all()
     return UserListResponse(users=[UserResponse(**user.__dict__) for user in users])
 
-# Обновление информации текущего пользователя
+# Обновление информации текущего пользователя.
 @router.put("/me")
 async def update_user_info(
     user_update: UserUpdate,

@@ -21,7 +21,7 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
         )
     return current_user
 
-# Эндпоинт для получения списка книг с фильтрацией по названию, жанру и дате публикации
+# Получение списка книг с фильтрацией по названию, жанру и дате публикации.
 @router.get("/", response_model=List[LiteratureItemResponse])
 async def get_items(
     db: Session = Depends(get_db),
@@ -41,7 +41,7 @@ async def get_items(
     items = query.offset(offset).limit(limit).all()
     return items
 
-# Эндпоинт для получения информации о книге по её ID
+# Получение информации о книге по её ID.
 @router.get("/literature_items/{literature_id}", response_model=LiteratureItemResponse)
 async def get_literature_item_by_id(
     literature_id: int, db: Session = Depends(get_db)
@@ -51,7 +51,7 @@ async def get_literature_item_by_id(
         raise HTTPException(status_code=404, detail="Literature item not found")
     return literature_item
 
-# Эндпоинт для получения книги с автором (с параметром include_author)
+# Получение книги с автором (с параметром include_author).
 @router.get("/literature_items/{literature_id}/with_author", response_model=LiteratureItemResponse)
 async def get_literature_item_with_author(
     literature_id: int, db: Session = Depends(get_db), include_author: bool = Query(False)
@@ -66,7 +66,7 @@ async def get_literature_item_with_author(
     
     return literature_item
 
-# Эндпоинт для обновления информации о книге по её ID (только для администратора)
+# Обновление информации о книге по её ID (только для администратора).
 @router.put("/literature_items/{literature_id}", response_model=LiteratureItemResponse)
 async def update_literature_item(
     literature_id: int,
@@ -85,7 +85,7 @@ async def update_literature_item(
     db.refresh(literature_item)
     return literature_item
 
-# Эндпоинт для создания новой книги (только для администратора)
+# Создание новой книги (только для администратора).
 @router.post("/literature_items", response_model=LiteratureItemResponse)
 async def create_literature_item(
     literature_item_data: LiteratureItemCreate,
@@ -98,7 +98,7 @@ async def create_literature_item(
     db.refresh(literature_item)
     return LiteratureItemResponse(**literature_item.__dict__)
 
-# Эндпоинт для удаления книги по ID (только для администратора)
+# Удаление книги по ID (только для администратора).
 @router.delete("/literature_items/{literature_id}", response_model=LiteratureItemResponse)
 async def delete_literature_item(
     literature_id: int,

@@ -1,0 +1,55 @@
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+from app.db.session import SessionLocal
+from app.models.user import User
+from app.core.security import hash_password
+from app.schemas.auth_token import AuthToken
+from app.schemas.login import LoginRequest
+
+@pytest.fixture()
+def db():
+    # Создание нового сессии для тестов
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@pytest.fixture()
+def test_user(db):
+    # Проверка, что пользователь с таким именем не существует
+    existing_user = db.query(User).filter(User.username == "testuser").first()
+    if not existing_user:
+        # Создание тестового пользователя
+        user = User(username="testuser", hashed_password=hash_password("testpassword"))
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return existing_user or db.query(User).filter(User.username == "testuser").first()
+
+@pytest.fixture()
+def client():
+    # Настройка клиента для тестов
+    with TestClient(app) as client:
+        yield client
+
+# tests/test_auth_portal.py
+
+def test_authenticate_user_success(client, test_user):
+    login_data = {
+        "username": "testuser",
+        "password": "testpassword"
+    }
+    response = client.post("/auth/login", json=login_data)
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+def test_authenticate_user_invalid_credentials(client):
+    login_data = {
+        "username": "wronguser",
+        "password": "wrongpassword"
+    }
+    response = client.post("/auth/login", json=login_data)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Incorrect username or password"

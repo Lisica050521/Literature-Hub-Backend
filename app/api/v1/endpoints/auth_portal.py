@@ -10,6 +10,7 @@ from app.models.user import User
 
 router = APIRouter()
 
+# Аутентификация пользователя.
 @router.post("/login", response_model=AuthToken)
 def authenticate_user(login_data: LoginRequest, db: Session = Depends(get_db)):
     user = verify_user_credentials(db, login_data.username, login_data.password)
@@ -20,6 +21,7 @@ def authenticate_user(login_data: LoginRequest, db: Session = Depends(get_db)):
         )
     token_lifespan = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = generate_auth_token(
-        data={"sub": str(user.id)}, expires_delta=token_lifespan
+        data={"user_id": user.id, "role": user.role},
+        expires_delta=token_lifespan
     )
     return {"access_token": access_token, "token_type": "bearer"}

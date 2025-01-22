@@ -24,6 +24,7 @@ def get_current_admin(current_user: User = Depends(get_current_user)):
         )
     return current_user
 
+# Получение списка авторов с возможностью фильтрации.
 @router.get("/", response_model=List[AuthorResponse])
 async def get_authors(
     db: Session = Depends(get_db),
@@ -44,6 +45,7 @@ async def get_authors(
     authors = query.offset(offset).limit(limit).all()
     return authors
 
+# Получение всех книг автора по его ID.
 @router.get("/{author_id}/literature_items", response_model=List[LiteratureItemResponse])
 async def get_literature_items_for_author(
     author_id: int,  # Параметр пути для получения литературы конкретного автора
@@ -59,7 +61,7 @@ async def get_literature_items_for_author(
     # Возвращаем литературу, принадлежащую автору (используем связь между моделями)
     return author.literature_items
 
-# Эндпоинт для создания нового автора (только для администратора)
+# Создание нового автора (только для администратора).
 @router.post("/", response_model=AuthorResponse)
 async def create_author(
     author_data: AuthorCreate,

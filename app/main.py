@@ -9,9 +9,6 @@ from app.db.base import Base
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Создание всех таблиц в базе данных
-Base.metadata.create_all(bind=engine)
-
 # Инициализация FastAPI приложения
 app = FastAPI(title="Literature Hub API", version="1.0.0")
 

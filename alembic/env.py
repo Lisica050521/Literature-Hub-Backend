@@ -1,46 +1,65 @@
 import os
-import sys
+
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+
+from sqlalchemy import engine_from_config, event
+
+from sqlalchemy import pool
+
 from alembic import context
-from dotenv import load_dotenv
 
-# Добавляем корневую директорию в sys.path
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(base_dir)
-
-# Загружаем переменные окружения
-load_dotenv()
-
-# Ещё одна настройка пути для импорта моделей
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
-# Импортируем модели, чтобы Alembic мог их увидеть
-from app.models.user import User
-from app.models.author import Author
-from app.models.literature_item import LiteratureItem
-from app.models.transaction import Transaction
 from app.db.base import Base
 
-# Метаданные для Alembic
-target_metadata = Base.metadata
+from app.models import Author, User, Transaction, LiteratureItem
 
-# Загружаем конфигурацию Alembic
+
+# this is the Alembic Config object, which provides
+# access to the values within the .ini file in use.
 config = context.config
 
-# Устанавливаем URL базы данных из переменных окружения
-DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL:
-    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# Interpret the config file for Python logging.
+# This line sets up loggers basically.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
-# Настраиваем логирование
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://irina:123@localhost:5432/literature_hub_db")
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+# add your model's MetaData object here
+# for 'autogenerate' support
+# from myapp import mymodel
+# target_metadata = mymodel.Base.metadata
+target_metadata = Base.metadata
+
+# other values from the config, defined by the needs of env.py,
+# can be acquired:
+# my_important_option = config.get_main_option("my_important_option")
+# ... etc.
+
+# Настройка логирования
 fileConfig(config.config_file_name)
 
+@event.listens_for(engine_from_config(config.get_section(config.config_ini_section), prefix="sqlalchemy.", poolclass=pool.NullPool), "connect")
+def set_search_path(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute('SET search_path TO public')  # Устанавливаем схему public
+    cursor.close()
 
-def run_migrations_offline():
-    """Запуск миграций в оффлайн-режиме."""
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode.
+
+    This configures the context with just a URL
+    and not an Engine, though an Engine is acceptable
+    here as well.  By skipping the Engine creation
+    we don't even need a DBAPI to be available.
+
+    Calls to context.execute() here emit the given string to the
+    script output.
+
+    """
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=config.get_main_option("sqlalchemy.url"),
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -50,25 +69,28 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online():
-    """Запуск миграций в онлайн-режиме."""
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode.
+
+    In this scenario we need to create an Engine
+    and associate a connection with the context.
+
+    """
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+        config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
+            connection=connection, target_metadata=target_metadata
         )
 
         with context.begin_transaction():
             context.run_migrations()
 
 
-# Выбор режима запуска миграций
 if context.is_offline_mode():
     run_migrations_offline()
 else:

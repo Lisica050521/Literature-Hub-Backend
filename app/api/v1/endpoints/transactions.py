@@ -1,6 +1,5 @@
 import logging
-from fastapi import APIRouter, HTTPException, Depends, status
-from fastapi import Body
+from fastapi import APIRouter, HTTPException, Depends, status, Body
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.transaction import Transaction
@@ -24,16 +23,16 @@ logger.addHandler(file_handler)
 
 router = APIRouter()
 
-# Функция для проверки, является ли пользователь администратором
+# Функция для проверки, является ли пользователь администратором.
 def get_current_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":  # Проверяем роль пользователя
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Требуется роль администратора для выполнения этого действия."
         )
     return current_user
 
-# Эндпоинт для выдачи книги пользователю (только для администраторов)
+# Выдача книги пользователю (только для администраторов).
 @router.post("/issue/{book_id}", response_model=IssueBookResponse)
 async def issue_book(
     book_id: int, 
@@ -93,7 +92,7 @@ async def issue_book(
 
     return {"message": "Книга выдана", "transaction_id": transaction.id, "due_date": transaction.due_date}
 
-# Эндпоинт для возврата книги, доступен только администратору
+# Возврат книги (только для администраторов).
 @router.post("/return/{transaction_id}", response_model=ReturnBookResponse)
 async def return_book(
     transaction_id: int,
@@ -138,7 +137,7 @@ async def return_book(
 
     return {"message": "Книга возвращена", "transaction_id": transaction.id}
 
-# Эндпоинт для получения транзакций пользователя. Доступен как админу так и читателю
+# Получение транзакций пользователя.
 @router.get("/transactions", response_model=List[TransactionResponse])
 async def get_user_transactions(
     db: Session = Depends(get_db),

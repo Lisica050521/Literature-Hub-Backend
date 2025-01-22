@@ -13,7 +13,7 @@ class AuthorCreate(AuthorBase):
     pass
 
 class AuthorResponse(AuthorBase):
-    id: int
+    id: str
     literature_items: List[LiteratureItemResponse] = []
 
     class Config:
