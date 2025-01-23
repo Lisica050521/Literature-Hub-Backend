@@ -4,7 +4,8 @@ from datetime import datetime
 from pydantic import Field
 
 class TransactionResponse(BaseModel):
-    book_id: int = Field(computed=True)
+    transaction_id: int
+    book_id: int
     loan_date: datetime
     return_date: Optional[datetime] = None
 
@@ -13,7 +14,7 @@ class TransactionResponse(BaseModel):
 
 class IssueBookResponse(BaseModel):
     message: str
-    transaction_id: str  # Изменено с int на str
+    transaction_id: int  
     due_date: datetime
 
     class Config:
@@ -21,7 +22,7 @@ class IssueBookResponse(BaseModel):
 
 class ReturnBookResponse(BaseModel):
     message: str
-    transaction_id: str
+    transaction_id: int
 
     class Config:
         from_attributes = True
