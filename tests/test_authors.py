@@ -3,7 +3,7 @@ from app.main import app
 from app.db.session import SessionLocal
 from app.models import Author, User, LiteratureItem
 from app.core.security import hash_password
-from app.schemas.author import AuthorCreate, AuthorResponse
+from app.schemas.author import AuthorCreate
 from app.schemas.literature_item import LiteratureItemResponse
 from sqlalchemy.orm import Session
 from typing import Generator

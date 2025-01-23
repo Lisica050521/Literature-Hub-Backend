@@ -32,13 +32,17 @@ async def get_items(
     offset: int = Query(0, ge=0, description="Смещение от начала списка")
 ):
     query = db.query(LiteratureItem)
+    
     if title:
         query = query.filter(LiteratureItem.title.ilike(f"%{title}%"))
     if genre:
         query = query.filter(LiteratureItem.genre.ilike(f"%{genre}%"))
     if publication_date:
         query = query.filter(LiteratureItem.publication_date == publication_date)
+    
+    # Добавим проверку на дублирование или фильтрацию по всем полям
     items = query.offset(offset).limit(limit).all()
+    
     return items
 
 # Получение информации о книге по её ID.
@@ -49,21 +53,6 @@ async def get_literature_item_by_id(
     literature_item = db.query(LiteratureItem).filter(LiteratureItem.id == literature_id).first()
     if not literature_item:
         raise HTTPException(status_code=404, detail="Literature item not found")
-    return literature_item
-
-# Получение книги с автором (с параметром include_author).
-@router.get("/literature_items/{literature_id}/with_author", response_model=LiteratureItemResponse)
-async def get_literature_item_with_author(
-    literature_id: int, db: Session = Depends(get_db), include_author: bool = Query(False)
-):
-    literature_item = db.query(LiteratureItem).filter(LiteratureItem.id == literature_id).first()
-    if not literature_item:
-        raise HTTPException(status_code=404, detail="Literature item not found")
-
-    if include_author:
-        # Получение информации о авторе
-        literature_item.author = db.query(Author).filter(Author.id == literature_item.author_id).first()
-    
     return literature_item
 
 # Обновление информации о книге по её ID (только для администратора).
@@ -92,11 +81,29 @@ async def create_literature_item(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
-    literature_item = LiteratureItem(**literature_item_data.dict())
+    # Создаем новый объект литературы с учётом всех полей
+    literature_item = LiteratureItem(
+        title=literature_item_data.title,
+        description=literature_item_data.description,
+        genre=literature_item_data.genre,
+        publication_date=literature_item_data.publication_date,
+        author_id=literature_item_data.author_id
+    )
+
     db.add(literature_item)
     db.commit()
     db.refresh(literature_item)
-    return LiteratureItemResponse(**literature_item.__dict__)
+    
+    # Возвращаем данные с использованием схемы LiteratureItemResponse
+    return LiteratureItemResponse(
+        id=literature_item.id,
+        title=literature_item.title,
+        description=literature_item.description,
+        genre=literature_item.genre,
+        publication_date=literature_item.publication_date,
+        available_copies=literature_item.available_copies,
+        author_id=literature_item.author_id
+    )
 
 # Удаление книги по ID (только для администратора).
 @router.delete("/literature_items/{literature_id}", response_model=LiteratureItemResponse)
@@ -112,3 +119,4 @@ async def delete_literature_item(
     db.delete(literature_item)
     db.commit()
     return LiteratureItemResponse(**literature_item.__dict__)
+

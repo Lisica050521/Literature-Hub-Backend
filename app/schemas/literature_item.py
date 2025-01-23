@@ -7,6 +7,8 @@ class LiteratureItemBase(BaseModel):
 
 class LiteratureItemCreate(LiteratureItemBase):
     author_id: int
+    publication_date: Optional[str] = None
+    genre: Optional[str] = None
 
 class LiteratureItemResponse(LiteratureItemBase):
     id: int
