@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db.session import SessionLocal
-from app.models.user import User
+from app.models import User, Transaction
 from app.core.security import hash_password
 from app.schemas.auth_token import AuthToken
 
@@ -14,6 +14,16 @@ def db():
         yield db
     finally:
         db.close()
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_db(db):
+    db.query(Transaction).delete()
+    db.query(User).delete()
+    db.commit()
+    yield db
+    db.query(Transaction).delete()
+    db.query(User).delete()
+    db.commit()        
 
 @pytest.fixture()
 def admin_user(db):
@@ -56,9 +66,8 @@ def authenticate_user(client, username, password):
     assert response.status_code == 200
     return response.json()["access_token"]
 
-def test_create_user(client, admin_user):
-    # Аутентификация администратора
-    token = authenticate_user(client, "admin", "adminpassword")
+# Создание нового пользователя
+def test_create_user(client):
     
     new_user_data = {
         "username": "newuser",
@@ -68,11 +77,11 @@ def test_create_user(client, admin_user):
     response = client.post(
         "/users/",
         json=new_user_data,
-        headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 200
     assert response.json()["message"] == "User created"
 
+# Получение списка пользователей (только для администратора)
 def test_get_users(client, admin_user, test_user):
     # Аутентификация администратора
     token = authenticate_user(client, "admin", "adminpassword")
@@ -86,10 +95,11 @@ def test_get_users(client, admin_user, test_user):
     assert any(user["username"] == "admin" for user in users)
     assert any(user["username"] == "testuser" for user in users)
 
+# Обновление информации о пользователе
 def test_update_user_info(client, test_user):
-    # Аутентификация тестового пользователя
+    # Аутентификация пользователя
     token = authenticate_user(client, "testuser", "testpassword")
-    
+        
     updated_data = {
         "username": "updateduser",
         "password": "updatedpassword"
@@ -99,6 +109,7 @@ def test_update_user_info(client, test_user):
         json=updated_data,
         headers={"Authorization": f"Bearer {token}"}
     )
+
     assert response.status_code == 200
     assert response.json()["message"] == "Информация обновлена"
     assert response.json()["user"]["username"] == "updateduser"
