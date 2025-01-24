@@ -34,6 +34,7 @@ def client():
     with TestClient(app) as client:
         yield client
 
+# Успешная аутентификация (валидные данные)
 def test_authenticate_user_success(client, test_user):
     login_data = {
         "username": "testuser",
@@ -43,6 +44,7 @@ def test_authenticate_user_success(client, test_user):
     assert response.status_code == 200
     assert "access_token" in response.json()
 
+# Неверные учетные данные (неверное имя пользователя или пароль)
 def test_authenticate_user_invalid_credentials(client):
     login_data = {
         "username": "wronguser",
@@ -51,3 +53,33 @@ def test_authenticate_user_invalid_credentials(client):
     response = client.post("/auth/login", json=login_data)
     assert response.status_code == 400
     assert response.json()["detail"] == "Incorrect username or password"
+
+# Пустое имя пользователя или пароль
+def test_empty_username_or_password(client):
+    # Пустое имя пользователя
+    login_data = {
+        "username": "",
+        "password": "testpassword"
+    }
+    response = client.post("/auth/login", json=login_data)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Incorrect username or password"
+
+    # Пустой пароль
+    login_data = {
+        "username": "testuser",
+        "password": ""
+    }
+    response = client.post("/auth/login", json=login_data)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Incorrect username or password"
+
+# Неверный формат данных
+def test_invalid_json_format(client):
+    # Невалидный формат данных (например, отсутствуют обязательные поля)
+    login_data = {
+        "user": "testuser",  # неверное имя поля
+        "pwd": "testpassword"  # неверное имя поля
+    }
+    response = client.post("/auth/login", json=login_data)
+    assert response.status_code == 422  # Ошибка валидации

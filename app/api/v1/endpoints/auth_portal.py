@@ -13,6 +13,14 @@ router = APIRouter()
 # Аутентификация пользователя.
 @router.post("/login", response_model=AuthToken)
 def authenticate_user(login_data: LoginRequest, db: Session = Depends(get_db)):
+
+    # Проверяем, что имя пользователя и пароль не пустые
+    if not login_data.username or not login_data.password:
+        raise HTTPException(
+            status_code=400,
+            detail="Incorrect username or password",
+        )
+
     user = verify_user_credentials(db, login_data.username, login_data.password)
     if not user:
         raise HTTPException(
