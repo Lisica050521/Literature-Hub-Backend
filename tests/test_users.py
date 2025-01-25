@@ -1,14 +1,18 @@
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db.session import SessionLocal
-from app.models import User, Transaction
-from app.core.security import hash_password
-from app.schemas.auth_token import AuthToken
+from app.models import User
+from app.utils import hash_password
+from sqlalchemy.orm import Session
+from typing import Generator
+import pytest
 
-@pytest.fixture()
-def db():
-    # Создание новой сессии для тестов
+# Используем TestClient для тестирования FastAPI приложения
+client = TestClient(app)
+
+# Фикстура для работы с базой данных
+@pytest.fixture(scope="module")
+def db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
@@ -17,31 +21,16 @@ def db():
 
 @pytest.fixture(scope="function", autouse=True)
 def clear_db(db):
-    db.query(Transaction).delete()
-    db.query(User).delete()
-    db.commit()
-    yield db
-    db.query(Transaction).delete()
-    db.query(User).delete()
-    db.commit()        
+    # Очистка базы данных после каждого теста
+    try:
+        yield  # Выполняется до теста
+    finally:
+        db.rollback()  # Откатываем незавершённые транзакции
+        db.query(User).delete()  # Удаляем пользователей
+        db.commit()  # Применяем изменения
 
 @pytest.fixture()
-def admin_user(db):
-    # Создание администратора для тестов
-    admin = db.query(User).filter(User.username == "admin").first()
-    if not admin:
-        admin = User(
-            username="admin",
-            hashed_password=hash_password("adminpassword"),
-            role="admin"
-        )
-        db.add(admin)
-        db.commit()
-        db.refresh(admin)
-    return admin
-
-@pytest.fixture()
-def test_user(db):
+def testuser(db):
     # Создание тестового пользователя
     user = db.query(User).filter(User.username == "testuser").first()
     if not user:
@@ -55,61 +44,58 @@ def test_user(db):
         db.refresh(user)
     return user
 
-@pytest.fixture()
-def client():
-    # Настройка клиента для тестов
-    with TestClient(app) as client:
-        yield client
-
-def authenticate_user(client, username, password):
-    response = client.post("/auth/login", json={"username": username, "password": password})
-    assert response.status_code == 200
-    return response.json()["access_token"]
-
-# Создание нового пользователя
-def test_create_user(client):
-    
-    new_user_data = {
-        "username": "newuser",
-        "password": "newpassword",
-        "role": "user"
-    }
+# Тест на первый шаг регистрации
+def test_start_registration(db):
     response = client.post(
-        "/users/",
-        json=new_user_data,
+        "/users/register/start",
+        data={"username": "newuser", "password": "newpassword"}
     )
     assert response.status_code == 200
-    assert response.json()["message"] == "User created"
+    assert response.json() == {"message": "Введите, кем вы хотите зарегистрироваться: читателем или администратором"}
 
-# Получение списка пользователей (только для администратора)
-def test_get_users(client, admin_user, test_user):
-    # Аутентификация администратора
-    token = authenticate_user(client, "admin", "adminpassword")
+# Тест на выбор роли
+def test_choose_role(db):
+    # Регистрируем пользователя
+    client.post("/users/register/start", data={"username": "newuser", "password": "newpassword"})
     
-    response = client.get(
-        "/users/",
-        headers={"Authorization": f"Bearer {token}"}
+    response = client.post(
+        "/users/register/choose_role",
+        data={"username": "newuser", "role_choice": "user"}
     )
     assert response.status_code == 200
-    users = response.json()["users"]
-    assert any(user["username"] == "admin" for user in users)
-    assert any(user["username"] == "testuser" for user in users)
+    assert response.json() == {"message": "Регистрация завершена. Ваша роль: читатель"}
 
-# Обновление информации о пользователе
-def test_update_user_info(client, test_user):
-    # Аутентификация пользователя
-    token = authenticate_user(client, "testuser", "testpassword")
-        
-    updated_data = {
-        "username": "updateduser",
-        "password": "updatedpassword"
-    }
-    response = client.put(
-        "/users/me",
-        json=updated_data,
-        headers={"Authorization": f"Bearer {token}"}
+    # Проверяем, что пользователь зарегистрирован как "user"
+    user = db.query(User).filter(User.username == "newuser").first()
+    assert user is not None
+    assert user.role == "user"
+
+# Тест на выбор роли с ошибкой
+def test_choose_role_invalid(db):
+    # Регистрируем пользователя
+    client.post("/users/register/start", data={"username": "newuser", "password": "newpassword"})
+    
+    response = client.post(
+        "/users/register/choose_role",
+        data={"username": "newuser", "role_choice": "invalidrole"}
     )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Некорректный выбор роли"}
 
+# Тест на подтверждение администратора
+def test_confirm_admin(db):
+    # Регистрируем пользователя
+    client.post("/users/register/start", data={"username": "newuser", "password": "newpassword"})
+    client.post("/users/register/choose_role", data={"username": "newuser", "role_choice": "admin"})
+    
+    response = client.post(
+        "/users/register/confirm_admin",
+        data={"username": "newuser", "admin_code": "1234567"}
+    )
     assert response.status_code == 200
-    assert response.json()["message"] == "Информация обновлена"
-    assert response.json()["user"]["username"] == "updateduser"
+    assert response.json() == {"message": "Регистрация завершена. Ваша роль: администратор"}
+
+    # Проверяем, что пользователь зарегистрирован как "admin"
+    user = db.query(User).filter(User.username == "newuser").first()
+    assert user is not None
+    assert user.role == "admin"
