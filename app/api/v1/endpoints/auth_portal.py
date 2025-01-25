@@ -6,7 +6,6 @@ from app.core.config import settings
 from app.schemas.auth_token import AuthToken
 from app.schemas.login import LoginRequest
 from app.dependencies import get_db
-from app.models.user import User
 
 router = APIRouter()
 

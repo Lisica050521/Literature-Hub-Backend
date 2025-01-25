@@ -1,103 +1,125 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
-from app.db.session import get_db
+from app.db.session import get_db, SessionLocal
 from app.models import User
-from app.schemas import UserCreate
-from app.schemas.user import UserListResponse, UserResponse, UserUpdate
 from app.utils import hash_password
 from app.core.config import settings
-import jwt
+from typing import Dict
 
-# Создаем роутер для обработки запросов, связанных с пользователями.
 router = APIRouter()
 
-# Для получения токена из заголовков запроса.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
+# Временное хранилище для отслеживания контекста пользователя (можно заменить на Redis или базу данных).
+user_registration_context: Dict[str, Dict] = {}
+
+# Пароль для администратора.
+ADMIN_PASSWORD = "1234567"
+
+# Хэширование пароля.
 def hash_password(password: str):
     from passlib.context import CryptContext
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     return pwd_context.hash(password)
 
-# Функция для извлечения текущего пользователя из токена.
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
+# Первый шаг: пользователь вводит имя и пароль.
+@router.post("/register/start")
+async def start_registration(
+    username: str = Form(...), 
+    password: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Неверный токен",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    except jwt.PyJWTError:
+    # Проверяем, существует ли пользователь с таким именем.
+    if db.query(User).filter(User.username == username).first():
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Не удалось проверить токен",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Пользователь с таким именем уже существует"
+        )
+
+    # Сохраняем имя пользователя и пароль в контексте.
+    user_registration_context[username] = {"password": password}
+    return {"message": "Введите, кем вы хотите зарегистрироваться: читателем или администратором"}
+
+# Второй шаг: пользователь выбирает роль.
+@router.post("/register/choose_role")
+async def choose_role(
+    username: str = Form(...), 
+    role_choice: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    # Проверяем, есть ли пользователь в контексте регистрации.
+    if username not in user_registration_context:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Сначала нужно ввести имя пользователя и пароль"
+        )
+
+    # Сохраняем выбор роли.
+    if role_choice not in ["user", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Некорректный выбор роли"
         )
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Пользователь не найден",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    user_registration_context[username]["role"] = role_choice
+
+    # Если выбрана роль "admin", запрашиваем код.
+    if role_choice == "admin":
+        return {"message": "Введите код администратора для завершения регистрации"}
     
-    return user
-
-# Функция для проверки роли администратора.
-def admin_required(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Доступ запрещён. Требуется роль администратора."
-        )
-    return current_user
-
-# Создания пользователя.
-@router.post("/")
-async def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    hashed_password = hash_password(user.password)
-    db_user = User(username=user.username, hashed_password=hashed_password, role=user.role)
+     # Если выбрана роль "user", завершаем регистрацию.
+    hashed_password = hash_password(user_registration_context[username]["password"])
+    db_user = User(username=username, hashed_password=hashed_password, role="user")
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return {"message": "User created", "user": db_user}
 
-# Получения списка пользователей (только для администратора).
-@router.get("/", response_model=UserListResponse)
-async def get_users(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required)
-):
-    users = db.query(User).all()
-    return UserListResponse(users=[UserResponse(**user.__dict__) for user in users])
+    # Удаляем пользователя из контекста.
+    user_registration_context.pop(username, None)
 
-# Обновление информации текущего пользователя.
-@router.put("/me")
-async def update_user_info(
-    user_update: UserUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    return {"message": "Регистрация завершена. Ваша роль: читатель"}
+
+# Третий шаг: проверка кода администратора.
+@router.post("/register/confirm_admin")
+async def confirm_admin(
+    username: str = Form(...), 
+    admin_code: str = Form(...),
+    db: Session = Depends(get_db)
 ):
-    # Получаем текущего пользователя из базы
-    db_user = db.query(User).filter(User.id == current_user.id).first()
-    
-    if not db_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
-    
-    # Обновляем разрешенные поля
-    if user_update.username:
-        db_user.username = user_update.username
-    if user_update.password:
-        db_user.hashed_password = hash_password(user_update.password)
-    
+    # Проверяем, есть ли пользователь в контексте регистрации.
+    if username not in user_registration_context:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Сначала нужно ввести имя пользователя и пароль"
+        )
+
+    # Проверяем, выбрал ли пользователь роль "admin".
+    if user_registration_context[username].get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Вы не выбирали роль администратора"
+        )
+
+    # Проверяем код администратора.
+    if admin_code != ADMIN_PASSWORD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный код администратора. Попробуйте снова"
+        )
+
+    # Если код правильный, создаём пользователя.
+    hashed_password = hash_password(user_registration_context[username]["password"])
+    db_user = User(username=username, hashed_password=hashed_password, role="admin")
+    db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return {"message": "Информация обновлена", "user": {"username": db_user.username}}
+
+    # Удаляем пользователя из контекста.
+    user_registration_context.pop(username, None)
+
+    return {"message": "Регистрация завершена. Ваша роль: администратор"}

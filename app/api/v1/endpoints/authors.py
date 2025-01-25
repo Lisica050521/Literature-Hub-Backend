@@ -1,15 +1,10 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
-from app.models import Author
-from app.models.user import User
+from sqlalchemy.orm import Session
+from app.models import Author, User
 from app.db.session import get_db
 from app.dependencies import get_current_user
-from app.schemas.author import AuthorResponse
+from app.schemas.author import AuthorResponse, AuthorCreate
 from app.schemas.literature_item import LiteratureItemResponse
-from app.schemas.author import AuthorCreate
-from app.schemas.literature_item import LiteratureItemCreate
-from app.models.literature_item import LiteratureItem
-
 
 from typing import List
 

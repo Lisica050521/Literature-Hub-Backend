@@ -3,16 +3,12 @@ from fastapi import APIRouter, HTTPException, Depends, status, Body
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.transaction import Transaction
-from app.models.literature_item import LiteratureItem
-from app.models.user import User
+from app.schemas.transactions import TransactionResponse, IssueBookResponse, ReturnBookResponse
+from app.models import LiteratureItem, User
 from app.dependencies import get_current_user
-from app.schemas.transactions import TransactionResponse
-from app.schemas.transactions import IssueBookResponse
-from app.schemas.transactions import ReturnBookResponse
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 from app.core.logging import logger
-from sqlalchemy import cast, UUID
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

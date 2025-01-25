@@ -1,12 +1,9 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from app.models import LiteratureItem
-from app.models.author import Author
-from app.models.user import User
+from app.models import LiteratureItem, User
 from app.dependencies import get_current_user
 from app.db.session import get_db
-from app.schemas.literature_item import LiteratureItemResponse
-from app.schemas.literature_item import LiteratureItemCreate
+from app.schemas.literature_item import LiteratureItemResponse, LiteratureItemCreate
 
 from typing import List
 
