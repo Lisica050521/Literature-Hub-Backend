@@ -4,13 +4,14 @@ from datetime import datetime
 from pydantic import Field
 
 class TransactionResponse(BaseModel):
-    transaction_id: int
+    transaction_id: int = Field(..., alias="id")
     book_id: int
     loan_date: datetime
     return_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+        allow_population_by_field_name = True
 
 class IssueBookResponse(BaseModel):
     message: str

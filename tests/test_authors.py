@@ -44,7 +44,7 @@ def authenticate_user(client, username, password):
     assert response.status_code == 200
     return response.json()["access_token"]
 
-# Тестирование создания нового автора (для администратора)
+# Тестирование создания нового автора (только для администратора)
 def test_create_author(db, admin_user):
     # Аутентификация администратора
     token = authenticate_user(client, "admin", "adminpassword")

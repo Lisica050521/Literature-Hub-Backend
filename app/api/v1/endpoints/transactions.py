@@ -10,8 +10,9 @@ from app.schemas.transactions import TransactionResponse
 from app.schemas.transactions import IssueBookResponse
 from app.schemas.transactions import ReturnBookResponse
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from app.core.logging import logger
+from sqlalchemy import cast, UUID
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -138,25 +139,34 @@ async def return_book(
     return {"message": "Книга возвращена", "transaction_id": transaction.id}
 
 # Получение транзакций пользователя.
-@router.get("/transactions", response_model=List[TransactionResponse])
+@router.get("/transactions/{user_id}", response_model=List[TransactionResponse])
 async def get_user_transactions(
+    user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),  # Здесь доступ только для текущего пользователя
-    user_id: int = None  # Параметр для администратора, который может указать другого пользователя
+    current_user: User = Depends(get_current_user),
 ):
     logger.info(f"Admin ID {current_user.id} is fetching transactions for User ID {user_id if user_id else current_user.id}")
 
-    # Если это администратор и передан user_id, ищем транзакции для другого пользователя
-    if current_user.role == "admin" and user_id:
-        transactions = db.query(Transaction).filter(Transaction.user_id == user_id).all()
-    else:
-        # Если это читатель, то показываем только его транзакции
-        transactions = db.query(Transaction).filter(Transaction.user_id == current_user.id).all()
+    # Если текущий пользователь не администратор и пытается получить данные другого пользователя
+    if current_user.role != "admin" and current_user.id != user_id:
+        logger.error(f"User {current_user.id} unauthorized to access transactions of User {user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Требуется роль администратора для выполнения этого действия."
+        )
 
-    # Логируем количество транзакций найденных
-    logger.info(f"Found {len(transactions)} transactions for User ID {current_user.id if not user_id else user_id}")
+    # Получаем транзакции пользователя
+    transactions = db.query(Transaction).filter(Transaction.user_id == user_id).all()
 
-    return [
-        TransactionResponse(**transaction.__dict__)
-        for transaction in transactions
-    ]
+    if not transactions:
+        logger.info(f"No transactions found for User {user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Транзакции пользователя не найдены."
+        )
+
+    # Логируем успешное получение транзакций
+    logger.info(f"Transactions retrieved for User {user_id} by User {current_user.id}")
+
+    # Возвращаем список транзакций
+    return [TransactionResponse.from_orm(transaction) for transaction in transactions]
