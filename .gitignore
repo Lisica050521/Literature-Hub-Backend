@@ -43,3 +43,13 @@ coverage.xml
 
 # Alembic migration files (если не нужно версионировать миграции)
 # alembic/
+
+# Docker
+.docker/
+*.dockerfile
+
+# Pytest
+.cache/
+
+# Logs from Docker container
+*.log

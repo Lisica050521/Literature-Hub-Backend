@@ -1,17 +1,19 @@
-FROM python:3.9-slim
+FROM python:3.12-slim
 
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
-ENV PYTHONIOENCODING=utf8
+# Копируем зависимости
+COPY requirements.txt ./
 
-COPY requirements.txt /app/
-
+# Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /app/
+# Копируем весь проект в контейнер
+COPY . /app
 
-EXPOSE 8000
+# Устанавливаем PYTHONPATH, чтобы Python знал, где искать модули
+ENV PYTHONPATH=/app
 
+# Команда для старта приложения
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

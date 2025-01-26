@@ -22,7 +22,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://irina:123@localhost:5432/literature_hub_db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://irina:123@postgres_db:5432/literature_hub_db")
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # add your model's MetaData object here
