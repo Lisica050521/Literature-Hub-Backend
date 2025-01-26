@@ -61,61 +61,62 @@
 ## Структура проекта
 
 literature_hub_api/
-├── alembic/
-│   └── versions/
-├── app/
-│   ├── api/
-│   │   ├── v1/
-│   │   │   ├── endpoints/
-│   │   │   │   ├── auth_portal.py
-│   │   │   │   ├── authors.py
-│   │   │   │   ├── literature_items.py
-│   │   │   │   ├── transactions.py
-│   │   │   │   ├── users.py
-│   │   │   └── __init__.py
-│   │   └── __init__.py
-│   ├── core/
-│   │   ├── config.py
-│   │   ├── logging.py
-│   │   ├── security.py
-│   │   └── __init__.py
-│   ├── db/
-│   │   ├── base.py
-│   │   ├── session.py
-│   │   └── __init__.py
-│   ├── models/
-│   │   ├── user.py
-│   │   ├── author.py
-│   │   ├── literature_item.py
-│   │   │   transactions.py
-│   │   └── __init__.py
-│   ├── schemas/
-│   │   ├── auth_token.py
-│   │   ├── user.py
-│   │   ├── author.py
-│   │   ├── literature_item.py
-│   │   ├── login.py
-│   │   │   transactions.py
-│   │   └── __init__.py
-│   ├── utils.py
-│   ├── dependencies.py
-│   └── main.py
-├── tests/
-│   ├── test_auth_portal.py
-│   ├── test_authors.py
-│   ├── test_literature_items.py
-│   ├── test_users.py
-│   ├── test_transactions.py
-│   └── __init__.py
-├── venv/
-├── .env
-├── .gitignor
-├── app.log
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── alembic.ini
-└── README.md
+- alembic/
+  - versions/
+- app/
+  - api/
+    - v1/
+      - endpoints/
+        - auth_portal.py
+        - authors.py
+        - literature_items.py
+        - transactions.py
+        - users.py
+      - __init__.py
+    - __init__.py
+  - core/
+    - config.py
+    - logging.py
+    - security.py
+    - __init__.py
+  - db/
+    - base.py
+    - session.py
+    - __init__.py
+  - models/
+    - user.py
+    - author.py
+    - literature_item.py
+    - transactions.py
+    - __init__.py
+  - schemas/
+    - auth_token.py
+    - user.py
+    - author.py
+    - literature_item.py
+    - login.py
+    - transactions.py
+    - __init__.py
+  - utils.py
+  - dependencies.py
+  - main.py
+- tests/
+  - test_auth_portal.py
+  - test_authors.py
+  - test_literature_items.py
+  - test_users.py
+  - test_transactions.py
+  - __init__.py
+- venv/
+- .env
+- .gitignore
+- app.log
+- docker-compose.yml
+- Dockerfile
+- requirements.txt
+- alembic.ini
+- README.md
+
 
 ## Запуск проекта
 
